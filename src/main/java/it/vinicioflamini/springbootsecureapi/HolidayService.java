@@ -1,6 +1,5 @@
 package it.vinicioflamini.springbootsecureapi;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,22 +22,26 @@ public class HolidayService {
 
 	@Autowired
 	private RestTemplate restTemplate;
+	
+	@Autowired
+	private ResponseEntity<List<Holiday>> response;
 
 	/**
 	 * get elements.
 	 * 
 	 * @param year          the year list holidays of
 	 * @param countryCode   ISO 3166-1 alpha-2 code of the country
-	 * @param fixedHolidays get only fixed (false)/only non fixed (true)/all (null) holidays
+	 * @param fixedHolidays get only fixed (false)/only non fixed (true)/all (null)
+	 *                      holidays
 	 *
 	 * @return elements
 	 */
 	public List<Holiday> get(Integer year, String countryCode, Boolean fixedHolidays) {
-		ResponseEntity<List<Holiday>> response = restTemplate.exchange(
+		response = restTemplate.exchange(
 				String.format("%s/PublicHolidays/%s/%s", clientUrl, String.valueOf(year), countryCode), HttpMethod.GET,
 				null, new ParameterizedTypeReference<List<Holiday>>() {
 				});
-		List<Holiday> holidays = certificateValidator.validate(clientUrl) ? response.getBody() : new ArrayList<>();
+		List<Holiday> holidays = certificateValidator.validate(clientUrl) ? response.getBody() : null;
 		if (holidays != null && fixedHolidays != null) {
 			holidays = holidays.stream().filter(h -> h.getFixed().equals(fixedHolidays)).collect(Collectors.toList());
 		}

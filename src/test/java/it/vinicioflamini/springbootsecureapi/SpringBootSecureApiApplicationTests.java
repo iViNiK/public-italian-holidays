@@ -1,4 +1,4 @@
-package it.vinicioflamini.springbootsecureapi.test;
+package it.vinicioflamini.springbootsecureapi;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class SpringBootSecureApiApplicationTests {
 
-	@Test
+	//@Test
 	void contextLoads() {
 	}
 
