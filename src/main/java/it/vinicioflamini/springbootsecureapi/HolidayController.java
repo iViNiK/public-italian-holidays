@@ -29,7 +29,7 @@ public class HolidayController {
 	@ApiOperation(value = "Returns the public holidays for current year in Italy.", notes = "Country code must be provided as ISO 3166-1 alpha-2", response = Holiday.class, responseContainer = "List")
 	@GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseStatus(HttpStatus.OK)
-	public List<HolidayDto> get(@RequestParam(name = "FixedHolyidays", required = false) Boolean fixedHolidays) {
+	public List<HolidayDto> get(@RequestParam(name = "FixedHolidays", required = false) Boolean fixedHolidays) {
 		ObjectMapper mapper = new ObjectMapper();
 		return holidayService.get(YEAR, COUNTRY_CODE, fixedHolidays).stream()
 				.map(h -> mapper.convertValue(h, HolidayDto.class)).collect(Collectors.toList());
