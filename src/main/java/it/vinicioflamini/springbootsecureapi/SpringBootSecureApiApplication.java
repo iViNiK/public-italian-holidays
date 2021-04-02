@@ -7,6 +7,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.List;
 
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
@@ -21,6 +22,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
@@ -81,6 +84,11 @@ public class SpringBootSecureApiApplication extends SpringBootServletInitializer
 		return new RestTemplate();
 	}
 
+	@Bean
+	public ResponseEntity<List<Holiday>> response() {
+		return new ResponseEntity<>(HttpStatus.OK);
+	}
+	
 	@Bean
 	public Docket api() {
 		return new Docket(DocumentationType.SWAGGER_2).select()
