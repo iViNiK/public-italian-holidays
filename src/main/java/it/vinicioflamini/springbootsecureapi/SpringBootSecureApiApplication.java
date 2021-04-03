@@ -62,9 +62,7 @@ public class SpringBootSecureApiApplication extends SpringBootServletInitializer
 		if (keyStore != null) {
 			try {
 				keyStore.load(resource.getInputStream(), keyStorePassword.toCharArray());
-			} catch (NoSuchAlgorithmException e) {
-				e.printStackTrace();
-			} catch (CertificateException|IOException e) {
+			} catch (NoSuchAlgorithmException|CertificateException|IOException e) {
 				e.printStackTrace();
 			}
 			SSLConnectionSocketFactory socketFactory = null;
