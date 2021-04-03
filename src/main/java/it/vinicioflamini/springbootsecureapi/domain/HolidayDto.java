@@ -1,4 +1,6 @@
-package it.vinicioflamini.springbootsecureapi;
+package it.vinicioflamini.springbootsecureapi.domain;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,16 +11,22 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Holiday {
+public class HolidayDto {
 
 	private String date;
 	private String localName;
 	private String name;
+	@JsonIgnore
 	private String countryCode;
+	@JsonIgnore
 	private Boolean fixed;
+	@JsonIgnore
 	private Boolean global;
+	@JsonIgnore
 	private String counties;
+	@JsonIgnore
 	private String launchYear;
+	@JsonIgnore
 	private String type;
 
 }

@@ -1,4 +1,4 @@
-package it.vinicioflamini.springbootsecureapi;
+package it.vinicioflamini.springbootsecureapi.service;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -10,6 +10,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import it.vinicioflamini.springbootsecureapi.domain.Holiday;
+import it.vinicioflamini.springbootsecureapi.validation.CertificateValidator;
 
 @Service
 public class HolidayService {

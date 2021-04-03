@@ -1,4 +1,4 @@
-package it.vinicioflamini.springbootsecureapi;
+package it.vinicioflamini.springbootsecureapi.validation;
 
 import java.net.URL;
 import java.security.KeyManagementException;

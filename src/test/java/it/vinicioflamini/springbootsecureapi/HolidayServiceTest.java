@@ -21,6 +21,10 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import it.vinicioflamini.springbootsecureapi.domain.Holiday;
+import it.vinicioflamini.springbootsecureapi.service.HolidayService;
+import it.vinicioflamini.springbootsecureapi.validation.CertificateValidator;
+
 @ExtendWith(MockitoExtension.class)
 class HolidayServiceTest {
 	@Value("${client.url}")
