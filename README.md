@@ -10,13 +10,16 @@ In connection with Spring Security, it will be possible to perform futher authen
 
 Technologies used:
 
+* Java EE 1.8
 * Spring Boot 2.4.4
 * Spring Web + Security 
 * Embedded Tomcat 9
 
+The IDE used is Spring Tool Suite 4.
+
 ## About security
 
-Some words to explain how the secured context was created.
+Following to explain how the secured context was created.
 
 ### Create certificates for server and client
 

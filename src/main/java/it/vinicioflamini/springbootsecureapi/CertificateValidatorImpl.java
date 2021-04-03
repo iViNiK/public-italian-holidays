@@ -1,13 +1,18 @@
 package it.vinicioflamini.springbootsecureapi;
 
 import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +25,7 @@ public class CertificateValidatorImpl implements CertificateValidator {
 
 	public boolean validate(String httpURL) {
 		HttpsURLConnection connection = null;
-		boolean result = false;
+		boolean isValid = true;
 		try {
 			// Create connection
 			logger.info(String.format("Try to connect to the URL %s ...", httpURL));
@@ -54,46 +59,64 @@ public class CertificateValidatorImpl implements CertificateValidator {
 				if (certificate instanceof X509Certificate) {
 					X509Certificate x509cert = (X509Certificate) certificate;
 
-					// Get subject and validate
+					// Get subject
 					Principal principal = x509cert.getSubjectDN();
-					result = !result
-							? principal.getName().equals("CN=Cloudflare Inc ECC CA-3, O=\"Cloudflare, Inc.\", C=US")
-							: result;
-					if (result) {
-						logger.info("Certificate Subject DN {} recognized!", principal.getName());
-					}
+					logger.info("Certificate Subject DN {}", principal.getName());
 
 					// Get issuer
-					// principal = x509cert.getIssuerDN();
-					// logger.info("Certificate IssuerDn {}", principal.getName());
+					principal = x509cert.getIssuerDN();
+					logger.info("Certificate Issuer DN {}", principal.getName());
 				}
 			}
 
-			// Close Connection
-			connection.disconnect();
-
 		} catch (Exception e) {
+			isValid = false;
+			logger.error(e.getMessage());
+		} finally {
+			// Close Connection
 			if (connection != null) {
 				connection.disconnect();
 			}
-			logger.error(e.getMessage());
 		}
 
-		if (!result) {
-			logger.info("SSL Certificate not recognized!");
-		}
-
-		return result;
+		return isValid;
 	}
 
 	/**
 	 * 
 	 * @return
+	 * @throws NoSuchAlgorithmException
+	 * @throws CertificateException
+	 * @throws KeyManagementException
 	 * @throws Exception
 	 */
-	private static SSLSocketFactory getFactorySimple() throws Exception {
+	private static SSLSocketFactory getFactorySimple() throws NoSuchAlgorithmException, KeyManagementException {
+		TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+
+			@Override
+			public X509Certificate[] getAcceptedIssuers() {
+				return null;
+			}
+
+			@Override
+			public void checkClientTrusted(X509Certificate[] certs, String authType) {
+			}
+
+			@Override
+			public void checkServerTrusted(X509Certificate[] certs, String authType) throws CertificateException {
+				try {
+					for (X509Certificate cert : certs) {
+						cert.checkValidity();
+					}
+				} catch (Exception ex) {
+					logger.error(ex.getMessage());
+					throw new CertificateException("Certificate not trusted. It was invalid or expired");
+				}
+			}
+		} };
+
 		SSLContext context = SSLContext.getInstance("TLS");
-		context.init(null, null, null);
+		context.init(null, trustAllCerts, null);
 		return context.getSocketFactory();
 	}
 }

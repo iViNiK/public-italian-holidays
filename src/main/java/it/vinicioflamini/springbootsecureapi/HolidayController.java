@@ -1,5 +1,6 @@
 package it.vinicioflamini.springbootsecureapi;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,8 +32,12 @@ public class HolidayController {
 	@ResponseStatus(HttpStatus.OK)
 	public List<HolidayDto> get(@RequestParam(name = "FixedHolidays", required = false) Boolean fixedHolidays) {
 		ObjectMapper mapper = new ObjectMapper();
-		return holidayService.get(YEAR, COUNTRY_CODE, fixedHolidays).stream()
-				.map(h -> mapper.convertValue(h, HolidayDto.class)).collect(Collectors.toList());
+		List<Holiday> holidays = holidayService.get(YEAR, COUNTRY_CODE, fixedHolidays);
+		if (holidays != null) {
+			return holidays.stream().map(h -> mapper.convertValue(h, HolidayDto.class)).collect(Collectors.toList());
+		} else {
+			return new ArrayList<>();
+		}
 	}
 
 }
