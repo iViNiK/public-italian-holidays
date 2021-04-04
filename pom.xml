@@ -80,6 +80,27 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+		        <artifactId>maven-war-plugin</artifactId>
+		        <configuration>
+		          <packagingExcludes>WEB-INF/classes/*.jks,WEB-INF/classes/*.p12</packagingExcludes>
+		        </configuration>
+		    </plugin>
+			<plugin>
+                <groupId>it.vinicioflamini</groupId>
+                <artifactId>certificate-generation-maven-plugin</artifactId>
+                <version>0.0.1-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/src/main/resources</outputDirectory>
+                        </configuration>
+                        <goals>
+                            <goal>certgen</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
 		</plugins>
 	</build>
 
