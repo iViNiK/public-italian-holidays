@@ -41,11 +41,11 @@ Step 3: Generate client's private key and a certificate signing request (CSR)
 
 	openssl req -new -newkey rsa:4096 -keyout client/myPrivateKey.pem -out client/request.csr -nodes -subj "/C=US/ST=CA/O=MyOrg, Inc./CN=mydomain.com"
 
-Step 4: Sign client's CSR with server private key and a related certificate
+Step 4: Sign client's CSR with server private key and related certificate, to obtain client certificate
 
 	openssl x509 -req -days 360 -in client/request.csr -CA server/server.crt -CAkey server/serverPrivateKey.pem -CAcreateserial -out client/vinik.crt -sha256
 
-Step 5: Verify client's certificate (Optional)
+Step 5: Verify client's certificate
 
 	openssl x509 -text -noout -in client/vinik.crt
 

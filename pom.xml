@@ -83,7 +83,7 @@
 			<plugin>
 		        <artifactId>maven-war-plugin</artifactId>
 		        <configuration>
-		          <packagingExcludes>WEB-INF/classes/*.jks,WEB-INF/classes/*.p12</packagingExcludes>
+		          <packagingExcludes>WEB-INF/classes/keyStore.p12,WEB-INF/classes/trustStore.jks</packagingExcludes>
 		        </configuration>
 		    </plugin>
 			<plugin>

@@ -1,12 +1,17 @@
 package it.vinicioflamini.springbootsecureapi.validation;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.util.Collection;
+import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -42,7 +47,7 @@ public class CertificateValidatorImpl implements CertificateValidator {
 			connection.setDoOutput(true);
 
 			// Create a SSL SocketFactory
-			SSLSocketFactory sslSocketFactory = getFactorySimple();
+			SSLSocketFactory sslSocketFactory = getFactorySimple(httpURL);
 			connection.setSSLSocketFactory(sslSocketFactory);
 
 			logger.info("HTTP Response Code {}", connection.getResponseCode());
@@ -55,6 +60,8 @@ public class CertificateValidatorImpl implements CertificateValidator {
 
 			for (Certificate certificate : serverCertificate) {
 				logger.info("Certificate Type {}", certificate.getType());
+
+				certificate.getPublicKey();
 
 				if (certificate instanceof X509Certificate) {
 					X509Certificate x509cert = (X509Certificate) certificate;
@@ -90,7 +97,7 @@ public class CertificateValidatorImpl implements CertificateValidator {
 	 * @throws KeyManagementException
 	 * @throws Exception
 	 */
-	private static SSLSocketFactory getFactorySimple() throws NoSuchAlgorithmException, KeyManagementException {
+	private SSLSocketFactory getFactorySimple(String httpUrl) throws NoSuchAlgorithmException, KeyManagementException {
 		TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
 
 			@Override
@@ -104,13 +111,20 @@ public class CertificateValidatorImpl implements CertificateValidator {
 
 			@Override
 			public void checkServerTrusted(X509Certificate[] certs, String authType) throws CertificateException {
-				try {
-					for (X509Certificate cert : certs) {
+				boolean check = false;
+
+				for (X509Certificate cert : certs) {
+					try {
 						cert.checkValidity();
+					} catch (Exception ex) {
+						logger.error(ex.getMessage());
+						throw new CertificateException("Certificate not trusted. It was invalid or expired");
 					}
-				} catch (Exception ex) {
-					logger.error(ex.getMessage());
-					throw new CertificateException("Certificate not trusted. It was invalid or expired");
+					check = !check ? checkSubjectAlternativeNames(cert, httpUrl) : check;
+				}
+				if (!check) {
+					logger.error("Certificate is not valid for the URL {}", httpUrl);
+					throw new CertificateException("Certificate not trusted. It was invalid for the provided URL");
 				}
 			}
 		} };
@@ -118,5 +132,33 @@ public class CertificateValidatorImpl implements CertificateValidator {
 		SSLContext context = SSLContext.getInstance("TLS");
 		context.init(null, trustAllCerts, null);
 		return context.getSocketFactory();
+	}
+
+	private boolean checkSubjectAlternativeNames(X509Certificate certificate, String httpUrl) {
+		boolean found = false;
+		try {
+			String uri = new URI(httpUrl).getHost();
+			String domain = uri.substring(uri.indexOf(".") + 1);
+			Collection<List<?>> altNames = certificate.getSubjectAlternativeNames();
+			if (altNames == null)
+				return found;
+			for (List<?> item : altNames) {
+				Integer type = (Integer) item.get(0);
+				// otherName / dNSName
+				if (type == 0 || type == 2) {
+					found = !found ? (String.valueOf(item.get(1))).equalsIgnoreCase(domain) : found;
+				} else {
+					logger.warn("SubjectAltName of invalid type found: " + certificate);
+				}
+			}
+		} catch (CertificateParsingException e) {
+			logger.error("Error parsing SubjectAltName in certificate: " + certificate + "\r\nerror:"
+					+ e.getLocalizedMessage(), e);
+			return false;
+		} catch (URISyntaxException e) {
+			logger.error("Error parsing url: " + httpUrl + "\r\nerror:" + e.getLocalizedMessage(), e);
+			return false;
+		}
+		return found;
 	}
 }
