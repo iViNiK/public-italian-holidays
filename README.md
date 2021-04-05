@@ -101,7 +101,7 @@ Note: in project pom file there is a plugin that can create private/public keys 
 
 After successfully installed the plugin library, return to the application project:
 
-3. Open the pom file and locate the tag '<phase>none</phase>' within the plugin "certificate-generation-maven-plugin"
+3. Open the pom file and locate the tag <phase>none</phase> within the plugin "certificate-generation-maven-plugin"
 4. As you can see, the section is surrounded by comments markers. Please remove them to uncomment that.
 5. Open a command shell and type "mvn clean package" to rebuild the application
 
