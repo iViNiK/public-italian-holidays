@@ -1,18 +1,35 @@
 package it.vinicioflamini.springbootsecureapi.validation;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Principal;
+import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
+import java.security.cert.PKIXParameters;
+import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import javax.naming.InvalidNameException;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -110,10 +127,11 @@ public class CertificateValidatorImpl implements CertificateValidator {
 			@Override
 			public void checkServerTrusted(X509Certificate[] certs, String authType) throws CertificateException {
 				boolean check = false;
-				
+
 				for (X509Certificate cert : certs) {
 					try {
 						cert.checkValidity();
+						verifyCertificate(cert);
 					} catch (Exception ex) {
 						logger.error(ex.getMessage());
 						throw new CertificateException("Certificate not trusted. It was invalid or expired");
@@ -158,5 +176,85 @@ public class CertificateValidatorImpl implements CertificateValidator {
 			return false;
 		}
 		return found;
+	}
+
+	private boolean verifyCertificate(X509Certificate cert) {
+		String relativeCacertsPath = "/lib/security/cacerts".replace("/", File.separator);
+		String filename = System.getProperty("java.home") + relativeCacertsPath;
+		FileInputStream is = null;
+		try {
+			is = new FileInputStream(filename);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		KeyStore keystore = null;
+		try {
+			keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+		} catch (KeyStoreException e) {
+			e.printStackTrace();
+		}
+		
+		String password = "changeit";
+		try {
+			keystore.load(is, password.toCharArray());
+		} catch (NoSuchAlgorithmException | CertificateException | IOException e) {
+			e.printStackTrace();
+		}
+
+		PKIXParameters params = null;
+		try {
+			params = new PKIXParameters(keystore);
+		} catch (KeyStoreException | InvalidAlgorithmParameterException e) {
+			e.printStackTrace();
+		}
+
+		Set<TrustAnchor> trustAnchors = params.getTrustAnchors();
+		List<Certificate> certificates = trustAnchors.stream().map(TrustAnchor::getTrustedCert)
+				.collect(Collectors.toList());
+
+		String sourceIssuer = getRdnO(cert);
+
+		for (Certificate certificate : certificates) {
+			X509Certificate x509Certificate = (X509Certificate) certificate;
+			if (getRdnO(x509Certificate).equals(sourceIssuer)) {
+				logger.info(x509Certificate.getIssuerX500Principal().getName());
+				try {
+					cert.verify(x509Certificate.getPublicKey());
+					return true;
+				} catch (InvalidKeyException | CertificateException | NoSuchAlgorithmException | NoSuchProviderException
+						| SignatureException e) {
+					e.printStackTrace();
+					return false;
+				}
+			}
+		}
+
+		if (is != null) {
+			try {
+				is.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return false;
+	}
+
+	private String getRdnO(X509Certificate cert) {
+		try {
+			LdapName ln = new LdapName(cert.getIssuerDN().getName());
+			for (Rdn rdn : ln.getRdns()) {
+				if (rdn.getType().equalsIgnoreCase("O")) {
+					logger.info("O is: " + rdn.getValue());
+					return String.valueOf(rdn.getValue());
+				}
+			}
+		} catch (InvalidNameException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return "";
 	}
 }
