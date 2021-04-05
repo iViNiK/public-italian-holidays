@@ -4,12 +4,11 @@
 
 This project is about an example of secured REST API with a client certificate (X.509 certificate authentication).
 
-In other words, a client verifies a server according to its certificate and the server identifies that client according to a client certificate (so-called mutual authentication).
-
 In connection with Spring Security, it will be possible to perform futher authentication and authorization.
 
 Technologies used:
 
+* Apache Maven 3.6.0 
 * Java EE 1.8
 * Spring Boot 2.4.4
 * Spring Web + Security 
@@ -86,6 +85,27 @@ When you successfully import client Keystore into your system and the applicatio
 
 * username: admin
 * password: password
+
+## Building and deploying the application
+
+Since it is a maven project, to build the application go to the project base folder end execute:
+
+	mvn clean package
+
+The result will be a war file that can be deployed under Tomcat vanilla 9 application server.
+
+Note: in project pom file there is a plugin that can create private/public keys and certificate during "generate resources" phase of maven lifecycle. By default it is disabled, and if you prefer using it please follow these steps:
+
+1. Clone the plugin project from its git repository: https://github.com/iViNiK/certificate-generation-maven-plugin.git
+2. Go to project base folder and run: "mvn clean install". It will install the required jar in your local .m2 folder
+
+After successfully installed the plugin library, return to the application project:
+
+3. Open the pom file and locate the tag "<phase>none</phase>" within the plugin "certificate-generation-maven-plugin"
+4. As you can see, the section is surrounded by comments markers. Please remove them to uncomment that.
+5. Open a command shell and type "mvn clean package" to rebuild the application
+
+Now in the WEB-INF/classes folder, within the war file, you will find keys and certificate.
 
 ## License
 Copyright © 2021 by Vinicio Flamini <io@vinicioflamini.it>

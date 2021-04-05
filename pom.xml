@@ -98,6 +98,9 @@
                         <goals>
                             <goal>certgen</goal>
                         </goals>
+                        <!--
+                        <phase>none</phase>  
+                        -->
                     </execution>
                 </executions>
             </plugin>

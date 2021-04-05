@@ -61,8 +61,6 @@ public class CertificateValidatorImpl implements CertificateValidator {
 			for (Certificate certificate : serverCertificate) {
 				logger.info("Certificate Type {}", certificate.getType());
 
-				certificate.getPublicKey();
-
 				if (certificate instanceof X509Certificate) {
 					X509Certificate x509cert = (X509Certificate) certificate;
 
@@ -112,7 +110,7 @@ public class CertificateValidatorImpl implements CertificateValidator {
 			@Override
 			public void checkServerTrusted(X509Certificate[] certs, String authType) throws CertificateException {
 				boolean check = false;
-
+				
 				for (X509Certificate cert : certs) {
 					try {
 						cert.checkValidity();
