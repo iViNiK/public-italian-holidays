@@ -20,11 +20,9 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
-import java.security.cert.CertificateParsingException;
 import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -128,20 +126,29 @@ public class CertificateValidatorImpl implements CertificateValidator {
 
 			@Override
 			public void checkServerTrusted(X509Certificate[] certs, String authType) throws CertificateException {
-				boolean check = false;
+				try {
+					String uri = new URI(httpUrl).getHost();
+					if (!uri.equals(getRdnType(certs[0].getSubjectDN(), "CN"))) {
+						// Certificate was not issued for the required URL
+						logger.error("Certificate is not valid for the URL {}", httpUrl);
+						throw new CertificateException("Certificate not trusted. It was invalid for the provided URL");
+					}
+				} catch (URISyntaxException e) {
+					logger.error("Error parsing url: " + httpUrl + "\r\nerror:" + e.getLocalizedMessage(), e);
+					throw new CertificateException("Invalid URL provided");
+				}
 
 				for (X509Certificate cert : certs) {
 					try {
-						check = !check ? checkCertificate(cert, httpUrl) : check;
+						if (!checkCertificate(cert, httpUrl)) {
+							logger.error("Certificate is not valid for the URL {}", httpUrl);
+							throw new CertificateException(
+									"Certificate not trusted. It was invalid for the provided URL");
+						}
 					} catch (Exception ex) {
 						logger.error(ex.getMessage());
 						throw new CertificateException("Certificate not trusted. It was invalid or expired");
 					}
-
-				}
-				if (!check) {
-					logger.error("Certificate is not valid for the URL {}", httpUrl);
-					throw new CertificateException("Certificate not trusted. It was invalid for the provided URL");
 				}
 			}
 		} };
@@ -153,21 +160,17 @@ public class CertificateValidatorImpl implements CertificateValidator {
 
 	private boolean checkCertificate(X509Certificate certificate, String httpUrl)
 			throws CertificateExpiredException, CertificateNotYetValidException {
-		try {
-			certificate.checkValidity();
 
-			if (certificate.getKeyUsage()[5]) {
-				// Root certificate
-				return verifyCertificate(certificate);
-			} else {
-				// Intermediate certificate
-				String uri = new URI(httpUrl).getHost();
-				return uri.equals(getRdnType(certificate.getSubjectDN(), "CN"));
+		certificate.checkValidity();
+
+		if (certificate.getKeyUsage()[5]) {
+			// Root certificate
+			return verifyCertificate(certificate);
+		} else {
+			if (!verifyCertificate(certificate)) {
+				logger.info("Warning: Could not verify certificate issued by: {}", certificate.getIssuerDN().getName());
 			}
-
-		} catch (URISyntaxException e) {
-			logger.error("Error parsing url: " + httpUrl + "\r\nerror:" + e.getLocalizedMessage(), e);
-			return false;
+			return true;
 		}
 	}
 
@@ -178,62 +181,46 @@ public class CertificateValidatorImpl implements CertificateValidator {
 	private boolean verifyCertificate(X509Certificate cert) {
 		String relativeCacertsPath = "/lib/security/cacerts".replace("/", File.separator);
 		String filename = System.getProperty("java.home") + relativeCacertsPath;
+		String password = "changeit";
 		FileInputStream is = null;
+		
 		try {
 			is = new FileInputStream(filename);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
 
-		KeyStore keystore = null;
-		try {
-			keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-		} catch (KeyStoreException e) {
-			e.printStackTrace();
-		}
-
-		String password = "changeit";
-		try {
+			KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 			keystore.load(is, password.toCharArray());
-		} catch (NoSuchAlgorithmException | CertificateException | IOException e) {
-			e.printStackTrace();
-		}
 
-		PKIXParameters params = null;
-		try {
-			params = new PKIXParameters(keystore);
-		} catch (KeyStoreException | InvalidAlgorithmParameterException e) {
-			e.printStackTrace();
-		}
+			PKIXParameters params = new PKIXParameters(keystore);
 
-		Set<TrustAnchor> trustAnchors = params.getTrustAnchors();
-		List<Certificate> certificates = trustAnchors.stream().map(TrustAnchor::getTrustedCert)
-				.collect(Collectors.toList());
+			Set<TrustAnchor> trustAnchors = params.getTrustAnchors();
+			List<Certificate> certificates = trustAnchors.stream().map(TrustAnchor::getTrustedCert)
+					.collect(Collectors.toList());
 
-		String sourceIssuer = getRdnType(cert.getIssuerDN(), "O");
+			String sourceIssuer = getRdnType(cert.getIssuerDN(), "O");
 
-		for (Certificate certificate : certificates) {
-			X509Certificate x509Certificate = (X509Certificate) certificate;
-			if (getRdnType(x509Certificate.getIssuerDN(), "O").equals(sourceIssuer)) {
-				logger.info(x509Certificate.getIssuerX500Principal().getName());
-				try {
-					cert.verify(x509Certificate.getPublicKey());
-					return true;
-				} catch (InvalidKeyException | CertificateException | NoSuchAlgorithmException | NoSuchProviderException
-						| SignatureException e) {
-					e.printStackTrace();
-					return false;
+			for (Certificate certificate : certificates) {
+				X509Certificate x509Certificate = (X509Certificate) certificate;
+				if (getRdnType(x509Certificate.getIssuerDN(), "O").equals(sourceIssuer)) {
+					logger.info(x509Certificate.getIssuerX500Principal().getName());
+					try {
+						cert.verify(x509Certificate.getPublicKey());
+						return true;
+					} catch (InvalidKeyException | CertificateException | NoSuchAlgorithmException
+							| NoSuchProviderException | SignatureException e) {
+						e.printStackTrace();
+						return false;
+					}
 				}
-			} else {
-				return false;
 			}
-		}
-
-		if (is != null) {
-			try {
-				is.close();
-			} catch (IOException e) {
-				e.printStackTrace();
+		} catch (Exception e) {
+			logger.error("Error occurred in certificate verification: {}", e.getLocalizedMessage());
+		} finally {
+			if (is != null) {
+				try {
+					is.close();
+				} catch (IOException e) {
+					logger.error("Error occurred in certificate verification: {}", e.getLocalizedMessage());
+				}
 			}
 		}
 
@@ -245,13 +232,11 @@ public class CertificateValidatorImpl implements CertificateValidator {
 			LdapName ln = new LdapName(principal.getName());
 			for (Rdn rdn : ln.getRdns()) {
 				if (rdn.getType().equalsIgnoreCase(type)) {
-					logger.info("Type is: " + rdn.getValue());
 					return String.valueOf(rdn.getValue());
 				}
 			}
 		} catch (InvalidNameException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.info("Could not parse {}: \rerror: {}", principal.getName(), e.getLocalizedMessage());
 		}
 
 		return "";
