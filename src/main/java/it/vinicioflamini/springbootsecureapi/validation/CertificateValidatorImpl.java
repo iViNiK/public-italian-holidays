@@ -18,6 +18,8 @@ import java.security.Principal;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
@@ -130,13 +132,12 @@ public class CertificateValidatorImpl implements CertificateValidator {
 
 				for (X509Certificate cert : certs) {
 					try {
-						cert.checkValidity();
-						verifyCertificate(cert);
+						check = !check ? checkCertificate(cert, httpUrl) : check;
 					} catch (Exception ex) {
 						logger.error(ex.getMessage());
 						throw new CertificateException("Certificate not trusted. It was invalid or expired");
 					}
-					check = !check ? checkSubjectAlternativeNames(cert, httpUrl) : check;
+
 				}
 				if (!check) {
 					logger.error("Certificate is not valid for the URL {}", httpUrl);
@@ -150,34 +151,30 @@ public class CertificateValidatorImpl implements CertificateValidator {
 		return context.getSocketFactory();
 	}
 
-	private boolean checkSubjectAlternativeNames(X509Certificate certificate, String httpUrl) {
-		boolean found = false;
+	private boolean checkCertificate(X509Certificate certificate, String httpUrl)
+			throws CertificateExpiredException, CertificateNotYetValidException {
 		try {
-			String uri = new URI(httpUrl).getHost();
-			String domain = uri.substring(uri.indexOf(".") + 1);
-			Collection<List<?>> altNames = certificate.getSubjectAlternativeNames();
-			if (altNames == null)
-				return found;
-			for (List<?> item : altNames) {
-				Integer type = (Integer) item.get(0);
-				// otherName / dNSName
-				if (type == 0 || type == 2) {
-					found = !found ? (String.valueOf(item.get(1))).equalsIgnoreCase(domain) : found;
-				} else {
-					logger.warn("SubjectAltName of invalid type found: " + certificate);
-				}
+			certificate.checkValidity();
+
+			if (certificate.getKeyUsage()[5]) {
+				// Root certificate
+				return verifyCertificate(certificate);
+			} else {
+				// Intermediate certificate
+				String uri = new URI(httpUrl).getHost();
+				return uri.equals(getRdnType(certificate.getSubjectDN(), "CN"));
 			}
-		} catch (CertificateParsingException e) {
-			logger.error("Error parsing SubjectAltName in certificate: " + certificate + "\r\nerror:"
-					+ e.getLocalizedMessage(), e);
-			return false;
+
 		} catch (URISyntaxException e) {
 			logger.error("Error parsing url: " + httpUrl + "\r\nerror:" + e.getLocalizedMessage(), e);
 			return false;
 		}
-		return found;
 	}
 
+	/**
+	 * Issuer root certificate must be found in client keystore. If missing it must
+	 * be imported.
+	 */
 	private boolean verifyCertificate(X509Certificate cert) {
 		String relativeCacertsPath = "/lib/security/cacerts".replace("/", File.separator);
 		String filename = System.getProperty("java.home") + relativeCacertsPath;
@@ -194,7 +191,7 @@ public class CertificateValidatorImpl implements CertificateValidator {
 		} catch (KeyStoreException e) {
 			e.printStackTrace();
 		}
-		
+
 		String password = "changeit";
 		try {
 			keystore.load(is, password.toCharArray());
@@ -213,11 +210,11 @@ public class CertificateValidatorImpl implements CertificateValidator {
 		List<Certificate> certificates = trustAnchors.stream().map(TrustAnchor::getTrustedCert)
 				.collect(Collectors.toList());
 
-		String sourceIssuer = getRdnO(cert);
+		String sourceIssuer = getRdnType(cert.getIssuerDN(), "O");
 
 		for (Certificate certificate : certificates) {
 			X509Certificate x509Certificate = (X509Certificate) certificate;
-			if (getRdnO(x509Certificate).equals(sourceIssuer)) {
+			if (getRdnType(x509Certificate.getIssuerDN(), "O").equals(sourceIssuer)) {
 				logger.info(x509Certificate.getIssuerX500Principal().getName());
 				try {
 					cert.verify(x509Certificate.getPublicKey());
@@ -227,6 +224,8 @@ public class CertificateValidatorImpl implements CertificateValidator {
 					e.printStackTrace();
 					return false;
 				}
+			} else {
+				return false;
 			}
 		}
 
@@ -237,16 +236,16 @@ public class CertificateValidatorImpl implements CertificateValidator {
 				e.printStackTrace();
 			}
 		}
-		
+
 		return false;
 	}
 
-	private String getRdnO(X509Certificate cert) {
+	private String getRdnType(Principal principal, String type) {
 		try {
-			LdapName ln = new LdapName(cert.getIssuerDN().getName());
+			LdapName ln = new LdapName(principal.getName());
 			for (Rdn rdn : ln.getRdns()) {
-				if (rdn.getType().equalsIgnoreCase("O")) {
-					logger.info("O is: " + rdn.getValue());
+				if (rdn.getType().equalsIgnoreCase(type)) {
+					logger.info("Type is: " + rdn.getValue());
 					return String.valueOf(rdn.getValue());
 				}
 			}
