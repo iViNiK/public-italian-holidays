@@ -2,16 +2,13 @@ package it.vinicioflamini.springbootsecureapi.validation;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Principal;
@@ -207,7 +204,7 @@ public class CertificateValidatorImpl implements CertificateValidator {
 						return true;
 					} catch (InvalidKeyException | CertificateException | NoSuchAlgorithmException
 							| NoSuchProviderException | SignatureException e) {
-						e.printStackTrace();
+						logger.error("Error occurred in certificate verification: {}", e.getLocalizedMessage());
 						return false;
 					}
 				}
